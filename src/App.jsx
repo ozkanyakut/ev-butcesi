@@ -32,7 +32,7 @@ let db = null;
 let isFirebaseActive = false;
 
 try {
-  if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "BURAYA_API_KEY_GELECEK") {
+  if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "AIzaSyBQxsLhnpkjL8IQqelqoFrKe68Cpgqup2A") {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     isFirebaseActive = true;
