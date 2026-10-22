@@ -19,7 +19,9 @@ import {
   Settings, LayoutDashboard, ListOrdered, Target, Plus, X, Calendar
 } from 'lucide-react';
 
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// ==========================================
+// FIREBASE KONFİGÜRASYONU
+// ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyBQxsLhnpkjL8IQqelqoFrKe68Cpgqup2A",
   authDomain: "home-budget-c9f7c.firebaseapp.com",
@@ -29,17 +31,17 @@ const firebaseConfig = {
   appId: "1:226490342667:web:e59e43a1f3d3fbdf73560e",
   measurementId: "G-63X5HH4P3G"
 };
+
+// Firebase Başlatma
 let db = null;
-let isFirebaseActive = false;
+let isFirebaseActive = true;
 
 try {
-  if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "AIzaSyBQxsLhnpkjL8IQqelqoFrKe68Cpgqup2A") {
-    const app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    isFirebaseActive = true;
-  }
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
 } catch (error) {
   console.warn("Firebase çalıştırılamadı:", error);
+  isFirebaseActive = false;
 }
 
 const INITIAL_CATEGORIES = {
