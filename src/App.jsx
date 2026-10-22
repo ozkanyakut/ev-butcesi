@@ -19,6 +19,7 @@ import {
   Settings, LayoutDashboard, ListOrdered, Target, Plus, X, Calendar
 } from 'lucide-react';
 
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyBQxsLhnpkjL8IQqelqoFrKe68Cpgqup2A",
   authDomain: "home-budget-c9f7c.firebaseapp.com",
