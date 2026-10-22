@@ -16,11 +16,9 @@ import {
 } from 'recharts';
 import { 
   PlusCircle, Trash2, Wallet, ArrowUpRight, ArrowDownRight, 
-  Users, Filter, AlertCircle, CheckCircle2, Calendar, Settings,
-  LayoutDashboard, ListOrdered, Target, UserCheck, Plus, X
+  Settings, LayoutDashboard, ListOrdered, Target, Plus, X, Calendar
 } from 'lucide-react';
 
-// FIREBASE KONFİGÜRASYONU
 const firebaseConfig = {
   apiKey: "AIzaSyBQxsLhnpkjL8IQqelqoFrKe68Cpgqup2A",
   authDomain: "home-budget-c9f7c.firebaseapp.com",
@@ -30,7 +28,6 @@ const firebaseConfig = {
   appId: "1:226490342667:web:e59e43a1f3d3fbdf73560e",
   measurementId: "G-63X5HH4P3G"
 };
-
 let db = null;
 let isFirebaseActive = false;
 
@@ -44,7 +41,7 @@ try {
   console.warn("Firebase çalıştırılamadı:", error);
 }
 
-const DEFAULT_CATEGORIES = {
+const INITIAL_CATEGORIES = {
   Gider: [
     { name: 'Mutfak / Market', limit: 15000, color: '#10B981' },
     { name: 'Kira / Ev', limit: 25000, color: '#6366F1' },
@@ -63,30 +60,52 @@ const DEFAULT_CATEGORIES = {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'transactions', 'limits', 'settings'
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [transactions, setTransactions] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [personFilter, setPersonFilter] = useState('Hepsi');
 
-  // Ayarlar State'leri (Kişi İsimleri)
+  // Ayarlar & Limitler State'leri
   const [person1, setPerson1] = useState(() => localStorage.getItem('p1_name') || 'Özkan');
   const [person2, setPerson2] = useState(() => localStorage.getItem('p2_name') || 'Ece');
+  const [categoryLimits, setCategoryLimits] = useState(() => {
+    const saved = localStorage.getItem('category_limits');
+    return saved ? JSON.parse(saved) : INITIAL_CATEGORIES.Gider;
+  });
 
-  // Form
+  // Modal ve Form State'leri
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [type, setType] = useState('Gider');
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState(DEFAULT_CATEGORIES.Gider[0].name);
+  const [category, setCategory] = useState(INITIAL_CATEGORIES.Gider[0].name);
   const [person, setPerson] = useState(person1);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // İsim Değişikliğini Sakla
+  // Gelir/Gider Değiştiğinde Kategoriyi Otomatik Güncelle
+  const handleTypeChange = (newType) => {
+    setType(newType);
+    if (newType === 'Gelir') {
+      setCategory(INITIAL_CATEGORIES.Gelir[0].name);
+    } else {
+      setCategory(categoryLimits[0].name);
+    }
+  };
+
+  // Ayarları Kaydet
   const handleSaveSettings = (e) => {
     e.preventDefault();
     localStorage.setItem('p1_name', person1);
     localStorage.setItem('p2_name', person2);
-    alert('Ayarlar kaydedildi!');
+    localStorage.setItem('category_limits', JSON.stringify(categoryLimits));
+    alert('Ayarlar ve Bütçe Limitleri Kaydedildi!');
+  };
+
+  // Limit Güncelleme
+  const handleLimitChange = (index, newLimit) => {
+    const updated = [...categoryLimits];
+    updated[index].limit = parseFloat(newLimit) || 0;
+    setCategoryLimits(updated);
   };
 
   useEffect(() => {
@@ -107,7 +126,6 @@ export default function App() {
           { id: '2', title: `${person2} Maaş`, amount: 42000, type: 'Gelir', category: 'Maaş', person: person2, date: `${selectedMonth}-01` },
           { id: '3', title: 'Mutfak Alışverişi', amount: 4800, type: 'Gider', category: 'Mutfak / Market', person: person2, date: `${selectedMonth}-05` },
           { id: '4', title: 'Ev Kirası', amount: 18000, type: 'Gider', category: 'Kira / Ev', person: 'Ortak', date: `${selectedMonth}-02` },
-          { id: '5', title: 'Elektrik & Su', amount: 1550, type: 'Gider', category: 'Faturalar', person: person1, date: `${selectedMonth}-10` },
         ];
         setTransactions(demoData);
         localStorage.setItem('ev_butcesi_data', JSON.stringify(demoData));
@@ -163,7 +181,7 @@ export default function App() {
   const netBalance = totalIncome - totalExpense;
   const savingsRate = totalIncome > 0 ? (((totalIncome - totalExpense) / totalIncome) * 100).toFixed(1) : 0;
 
-  const categoryData = DEFAULT_CATEGORIES.Gider.map(cat => {
+  const categoryData = categoryLimits.map(cat => {
     const val = filteredTransactions.filter(t => t.type === 'Gider' && t.category === cat.name).reduce((a, b) => a + b.amount, 0);
     return { name: cat.name, value: val, color: cat.color };
   }).filter(c => c.value > 0);
@@ -176,8 +194,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans pb-12">
-      
-      {/* Üst Navigasyon Barı */}
       <div className="bg-white border-b border-slate-100 sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -199,37 +215,24 @@ export default function App() {
             </div>
 
             <button
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => { setIsModalOpen(true); handleTypeChange('Gider'); }}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-semibold text-sm flex items-center gap-2 shadow-sm transition-all"
             >
               <Plus className="w-4 h-4" /> Yeni Ekle
             </button>
           </div>
 
-          {/* Sekme Menüsü */}
           <div className="flex space-x-8 border-t border-slate-100 pt-2 text-sm font-medium">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${activeTab === 'dashboard' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-            >
+            <button onClick={() => setActiveTab('dashboard')} className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${activeTab === 'dashboard' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
               <LayoutDashboard className="w-4 h-4" /> Özet Pano
             </button>
-            <button
-              onClick={() => setActiveTab('transactions')}
-              className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${activeTab === 'transactions' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-            >
+            <button onClick={() => setActiveTab('transactions')} className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${activeTab === 'transactions' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
               <ListOrdered className="w-4 h-4" /> Gelir & Giderler
             </button>
-            <button
-              onClick={() => setActiveTab('limits')}
-              className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${activeTab === 'limits' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-            >
+            <button onClick={() => setActiveTab('limits')} className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${activeTab === 'limits' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
               <Target className="w-4 h-4" /> Bütçe Limitleri
             </button>
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${activeTab === 'settings' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-            >
+            <button onClick={() => setActiveTab('settings')} className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${activeTab === 'settings' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
               <Settings className="w-4 h-4" /> Ayarlar
             </button>
           </div>
@@ -237,8 +240,6 @@ export default function App() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
-        
-        {/* Dönüm Seçimi Barı */}
         <div className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2 text-slate-600 text-sm font-medium">
             <Calendar className="w-4 h-4 text-indigo-600" />
@@ -252,7 +253,7 @@ export default function App() {
           />
         </div>
 
-        {/* SECME 1: ÖZET PANO */}
+        {/* ÖZET PANO */}
         {activeTab === 'dashboard' && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -324,7 +325,7 @@ export default function App() {
           </>
         )}
 
-        {/* SEKME 2: GELİR & GİDERLER TABLOSU */}
+        {/* GELİR & GİDERLER TABLOSU */}
         {activeTab === 'transactions' && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
             <div className="flex items-center justify-between">
@@ -375,20 +376,20 @@ export default function App() {
           </div>
         )}
 
-        {/* SEKME 3: BÜTÇE LİMİTLERİ */}
+        {/* BÜTÇE LİMİTLERİ */}
         {activeTab === 'limits' && (
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
             <h2 className="font-bold text-slate-800">Kategori Bazlı Limitler</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {DEFAULT_CATEGORIES.Gider.map(cat => {
+              {categoryLimits.map(cat => {
                 const spent = filteredTransactions.filter(t => t.type === 'Gider' && t.category === cat.name).reduce((a, b) => a + b.amount, 0);
-                const percent = Math.min(Math.round((spent / cat.limit) * 100), 100);
+                const percent = Math.min(Math.round((spent / (cat.limit || 1)) * 100), 100);
                 return (
                   <div key={cat.name} className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
                     <div className="flex justify-between text-xs font-semibold">
                       <span>{cat.name}</span>
                       <span className={spent > cat.limit ? 'text-rose-600' : 'text-slate-600'}>
-                        ₺{spent.toLocaleString('tr-TR')} / ₺{cat.limit.toLocaleString('tr-TR')}
+                        ₺{spent.toLocaleString('tr-TR')} / ₺{(cat.limit || 0).toLocaleString('tr-TR')}
                       </span>
                     </div>
                     <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
@@ -401,41 +402,61 @@ export default function App() {
           </div>
         )}
 
-        {/* SEKME 4: AYARLAR (KİŞİ İSİMLERİ DEĞİŞTİRME) */}
+        {/* AYARLAR & BÜTÇE LİMİT DÜZENLEME */}
         {activeTab === 'settings' && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm max-w-xl mx-auto space-y-6">
-            <h2 className="font-bold text-slate-800 flex items-center gap-2">
-              <Settings className="w-5 h-5 text-indigo-600" /> Profil ve Kişi Ayarları
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm max-w-2xl mx-auto space-y-6">
+            <h2 className="font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
+              <Settings className="w-5 h-5 text-indigo-600" /> Profil ve Bütçe Limit Ayarları
             </h2>
 
-            <form onSubmit={handleSaveSettings} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">1. Eşin / Kişinin İsmi</label>
-                <input
-                  type="text"
-                  value={person1}
-                  onChange={(e) => setPerson1(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
+            <form onSubmit={handleSaveSettings} className="space-y-6">
+              {/* Kişi İsimleri */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">1. Kişinin İsmi</label>
+                  <input
+                    type="text"
+                    value={person1}
+                    onChange={(e) => setPerson1(e.target.value)}
+                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">2. Kişinin İsmi</label>
+                  <input
+                    type="text"
+                    value={person2}
+                    onChange={(e) => setPerson2(e.target.value)}
+                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">2. Eşin / Kişinin İsmi</label>
-                <input
-                  type="text"
-                  value={person2}
-                  onChange={(e) => setPerson2(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
+              {/* Bütçe Limitleri Düzenleme */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-slate-700">Kategori Aylık Limitlerini Belirleyin (₺)</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {categoryLimits.map((cat, idx) => (
+                    <div key={cat.name} className="flex items-center justify-between gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-xs font-medium text-slate-700 truncate">{cat.name}</span>
+                      <input
+                        type="number"
+                        value={cat.limit}
+                        onChange={(e) => handleLimitChange(idx, e.target.value)}
+                        className="w-28 p-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-right outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm transition-all"
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm transition-all shadow-sm"
               >
-                Ayarları Kaydet
+                Tüm Ayarları ve Limitleri Kaydet
               </button>
             </form>
           </div>
@@ -454,28 +475,42 @@ export default function App() {
 
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
-                <button type="button" onClick={() => setType('Gider')} className={`py-1.5 text-xs font-semibold rounded-lg ${type === 'Gider' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'}`}>Gider</button>
-                <button type="button" onClick={() => setType('Gelir')} className={`py-1.5 text-xs font-semibold rounded-lg ${type === 'Gelir' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}>Gelir</button>
+                <button 
+                  type="button" 
+                  onClick={() => handleTypeChange('Gider')} 
+                  className={`py-1.5 text-xs font-semibold rounded-lg transition-all ${type === 'Gider' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'}`}
+                >
+                  Gider
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => handleTypeChange('Gelir')} 
+                  className={`py-1.5 text-xs font-semibold rounded-lg transition-all ${type === 'Gelir' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}
+                >
+                  Gelir
+                </button>
               </div>
 
-              <input type="text" placeholder="Açıklama" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2 border border-slate-200 rounded-xl text-sm" required />
-              <input type="number" step="0.01" placeholder="Tutar (₺)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-2 border border-slate-200 rounded-xl text-sm" required />
+              <input type="text" placeholder="Açıklama" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" required />
+              <input type="number" step="0.01" placeholder="Tutar (₺)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" required />
 
               <div className="grid grid-cols-2 gap-2">
-                <select value={person} onChange={(e) => setPerson(e.target.value)} className="w-full p-2 border border-slate-200 rounded-xl text-sm">
+                <select value={person} onChange={(e) => setPerson(e.target.value)} className="w-full p-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
                   <option value={person1}>{person1}</option>
                   <option value={person2}>{person2}</option>
                   <option value="Ortak">Ortak</option>
                 </select>
 
-                <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-2 border border-slate-200 rounded-xl text-sm">
-                  {DEFAULT_CATEGORIES[type].map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                  {(type === 'Gelir' ? INITIAL_CATEGORIES.Gelir : categoryLimits).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
 
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full p-2 border border-slate-200 rounded-xl text-sm" />
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full p-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
 
-              <button type="submit" className="w-full py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-sm">Ekle</button>
+              <button type="submit" className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm transition-all">
+                {type === 'Gelir' ? 'Gelir Ekle' : 'Gider Ekle'}
+              </button>
             </form>
           </div>
         </div>
